@@ -1,105 +1,91 @@
 import { Request, Response } from 'express';
+import { prisma } from '../../data/postgres';
+import { CreateTodoDto, UpdateTodoDto } from '../../domain/dtos';
 
 export class TodosController {
-
-  private todos = [
-    { id: 1, text: 'Buy milk', completedAt: new Date() },
-    { id: 2, text: 'Buy bread', completedAt: null },
-    { id: 3, text: 'Buy butter', completedAt: new Date() },
-  ];
-  private nextId: number = this.todos.length + 1;
 
   // * DI
   constructor() {}
 
-  public getTodos = (req: Request, res: Response) => {
-    res.json(this.todos);
+  public getTodos = async (req: Request, res: Response) => {
+    const todos = await prisma.todo.findMany();
+    res.json(todos);
   };
 
-  public getTodoById = (req: Request, res: Response) => {
-    const idTodo = +req.params.id;
+  public getTodoById = async (req: Request, res: Response) => {
+    const id = +req.params.id;
 
-    if (isNaN(idTodo)) {
+    if (isNaN(id)) {
       return res.status(400).json({
         error: `ID not valid, it must be a number`
       });
     }
 
-    const todo = this.todos.find(todo => todo.id === idTodo);
+    const todo = await prisma.todo.findUnique({
+      where: { id }
+    });
 
     if (!todo) {
       return res.status(404).json({
-        error: `Todo with id ${ idTodo } not found`
+        error: `Todo with id ${ id } not found`
       });
     }
 
     res.json(todo);
   };
 
-  public createTodo = (req: Request, res: Response) => {
-    const { text } = req.body;
+  public createTodo = async (req: Request, res: Response) => {
+    const [ error, createTodoDto ] = CreateTodoDto.create(req.body);
+    if (error) return res.status(400).json({ error });
 
-    if (!text) {
-      return res.status(400).json({
-        error: 'Text property is required'
-      });
-    }
+    const todo = await prisma.todo.create({
+      data: createTodoDto!
+    });
 
-    const todo = {
-      id: this.nextId++,
-      text,
-      completedAt: null
-    };
-    this.todos.push(todo);
     res.json({
-      message: 'Success on creating Todo',
       todo
     });
   };
 
-  public updateTodo = (req: Request, res: Response) => {
-    const idTodo = +req.params.id;
-    const { text, completedAt } = req.body;
+  public updateTodo = async (req: Request, res: Response) => {
+    const id = +req.params.id;
+    const [ error, updateTodoDto ] = UpdateTodoDto.create(req.body);
 
-    if (isNaN(idTodo)) {
-      return res.status(400).json({
-        error: 'ID not valid, it must be a number'
-      });
+    if (error) {
+      return res.status(400).json({ error });
     }
 
-    const todo = this.todos.find(todoMember => todoMember.id === idTodo);
-    if (!todo) {
-      return res.status(404).json({
-        error: `Todo with id ${ idTodo } not found`
+    try {
+      const todo = await prisma.todo.update({
+        where: { id },
+        data: updateTodoDto!.values
+      });
+      res.json(todo);
+    } catch (error) {
+      res.status(404).json({
+        error: `Todo with id ${ id } not found`
       });
     }
-
-    todo.text = text;
-    (completedAt === 'null')
-        ? todo.completedAt = null
-        : todo.completedAt = new Date(completedAt ?? todo.completedAt);
-
-    res.json(todo);
   };
 
-  public deleteTodo = (req: Request, res: Response) => {
-    const idTodo = +req.params.id;
+  public deleteTodo = async (req: Request, res: Response) => {
+    const id = +req.params.id;
 
-    if (isNaN(idTodo)) {
+    if (isNaN(id)) {
       return res.status(400).json({
         error: 'ID not valid, it must be a number'
       });
     }
 
-    const todo = this.todos.find(todoMember => todoMember.id === idTodo);
-    if (!todo) {
+    try {
+      const todo = await prisma.todo.delete({
+        where: { id }
+      });
+      res.json(todo);
+    } catch (error) {
       return res.status(404).json({
-        error: `Todo with id ${ idTodo } not found`
+        error: `Todo with id ${ id } not found`
       });
     }
-
-    this.todos = this.todos.filter(todo => todo.id !== idTodo);
-    // this.todos.splice(this.todos.indexOf(todo), 1);
-    res.json(todo);
   };
 }
