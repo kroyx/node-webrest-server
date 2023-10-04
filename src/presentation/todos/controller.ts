@@ -1,13 +1,15 @@
 import { Request, Response } from 'express';
 import {
   CreateTodo,
+  CreateTodoDto,
+  CustomError,
   DeleteTodo,
   GetTodo,
   GetTodos,
   TodoRepository,
-  UpdateTodo
+  UpdateTodo,
+  UpdateTodoDto
 } from '../../domain';
-import { CreateTodoDto, UpdateTodoDto } from '../../domain';
 
 export class TodosController {
 
@@ -20,7 +22,7 @@ export class TodosController {
     new GetTodos(this.repository)
         .execute()
         .then(todo => res.json(todo))
-        .catch(error => res.status(400).json(error));
+        .catch(error => this.handleError(res, error));
   };
 
   public getTodoById = (req: Request, res: Response) => {
@@ -34,7 +36,7 @@ export class TodosController {
     new GetTodo(this.repository)
         .execute(id)
         .then(todo => res.json(todo))
-        .catch(error => res.status(400).json(error));
+        .catch(error => this.handleError(res, error));
   };
 
   public createTodo = async (req: Request, res: Response) => {
@@ -43,8 +45,8 @@ export class TodosController {
 
     new CreateTodo(this.repository)
         .execute(createTodoDto!)
-        .then(todo => res.json(todo))
-        .catch(error => res.status(400).json(error));
+        .then(todo => res.status(201).json(todo))
+        .catch(error => this.handleError(res, error));
   };
 
   public updateTodo = async (req: Request, res: Response) => {
@@ -57,7 +59,8 @@ export class TodosController {
 
     new UpdateTodo(this.repository)
         .execute(updateTodoDto!)
-        .catch(error => res.status(400).json(error));
+        .then(todo => res.json(todo))
+        .catch(error => this.handleError(res, error));
   };
 
   public deleteTodo = async (req: Request, res: Response) => {
@@ -72,6 +75,16 @@ export class TodosController {
     new DeleteTodo(this.repository)
         .execute(id)
         .then(todo => res.json(todo))
-        .catch(error => res.status(400).json(error));
+        .catch(error => this.handleError(res, error));
+  };
+
+  private handleError = (res: Response, error: unknown) => {
+    if (error instanceof CustomError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+
+    return res.status(500).json({
+      error: 'Internal Server Error - check logs'
+    });
   };
 }

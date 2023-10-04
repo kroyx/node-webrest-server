@@ -2,7 +2,9 @@
 node_modules/
 keys/
 /postgres
+/coverage
 .env
+.env.test
 .env.prod
 
 dist/
